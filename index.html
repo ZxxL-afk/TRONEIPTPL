@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRONEIPTPL</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        .game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            border: 2px solid #00f8ff;
+            box-shadow: 0 0 20px #00f8ff, inset 0 0 10px #00f8ff;
+            margin-bottom: 20px;
+        }
+
+        canvas {
+            background-color: #000;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            width: 800px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .player-info {
+            padding: 10px;
+            border: 1px solid;
+            width: 45%;
+            border-radius: 5px;
+        }
+
+        .player1 {
+            border-color: #ff00ff;
+            box-shadow: 0 0 10px #ff00ff;
+        }
+
+        .player2 {
+            border-color: #00ffff;
+            box-shadow: 0 0 10px #00ffff;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            text-shadow: 0 0 10px #00f8ff, 0 0 20px #00f8ff;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #111;
+            color: white;
+            border: 2px solid #00f8ff;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px #00f8ff;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            box-shadow: 0 0 20px #00f8ff;
+            text-shadow: 0 0 5px white;
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+            z-index: 10;
+            width: 60%;
+            border: 2px solid #00f8ff;
+            box-shadow: 0 0 20px #00f8ff;
+        }
+
+        .winner {
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px;
+        }
+
+        .pink-neon {
+            color: #ff00ff;
+            text-shadow: 0 0 10px #ff00ff;
+        }
+
+        .blue-neon {
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+        }
+    </style>
+</head>
+<body>
+    <h1>TRONEIPTPL</h1>
+    
+    <div class="controls">
+        <div class="player-info player1">
+            <h3 class="pink-neon">Jugador 1</h3>
+            <p>Controles: W, A, S, D</p>
+            <p>Color: <span class="pink-neon">Rosa</span></p>
+        </div>
+
+        <div class="player-info player2">
+            <h3 class="blue-neon">Jugador 2</h3>
+            <p>Controles: ↑, ←, ↓, →</p>
+            <p>Color: <span class="blue-neon">Azul</span></p>
+        </div>
+    </div>
+    
+    <div class="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div class="game-over" id="gameOver">
+            <h2>¡FIN DEL JUEGO!</h2>
+            <div id="winner" class="winner"></div>
+            <button id="restartBtn">Reiniciar Juego</button>
+        </div>
+    </div>
+    
+    <button id="startBtn">Iniciar Juego</button>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const gameOverDiv = document.getElementById('gameOver');
+            const winnerDiv = document.getElementById('winner');
+            const startBtn = document.getElementById('startBtn');
+            const restartBtn = document.getElementById('restartBtn');
+            
+            // Constantes del juego
+            const GRID_SIZE = 10;
+            const WIDTH = canvas.width;
+            const HEIGHT = canvas.height;
+            const COLS = WIDTH / GRID_SIZE;
+            const ROWS = HEIGHT / GRID_SIZE;
+            
+            // Velocidad de los jugadores (más bajo = más rápido)
+            const GAME_SPEED = 80; 
+            
+            // Estados del juego
+            let isGameRunning = false;
+            let gameInterval;
+            let grid = [];
+            
+            // Jugadores
+            let player1 = {
+                x: 20,
+                y: HEIGHT / 2,
+                dx: 1,
+                dy: 0,
+                color: '#ff00ff',
+                shadowColor: '#ff00ff',
+                trail: [],
+                controls: {
+                    up: 'KeyW',
+                    down: 'KeyS',
+                    left: 'KeyA',
+                    right: 'KeyD'
+                }
+            };
+            
+            let player2 = {
+                x: WIDTH - 20,
+                y: HEIGHT / 2,
+                dx: -1,
+                dy: 0,
+                color: '#00ffff',
+                shadowColor: '#00ffff',
+                trail: [],
+                controls: {
+                    up: 'ArrowUp',
+                    down: 'ArrowDown',
+                    left: 'ArrowLeft',
+                    right: 'ArrowRight'
+                }
+            };
+            
+            // Inicializar la cuadrícula
+            function initGrid() {
+                grid = new Array(COLS);
+                for (let i = 0; i < COLS; i++) {
+                    grid[i] = new Array(ROWS).fill(0);
+                }
+            }
+            
+            // Dibujar fondo con efecto de cuadrícula de neón
+            function drawBackground() {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.fillRect(0, 0, WIDTH, HEIGHT);
+                
+                // Dibujar líneas de cuadrícula
+                ctx.strokeStyle = 'rgba(0, 50, 50, 0.2)';
+                ctx.lineWidth = 1;
+                
+                // Líneas horizontales
+                for (let y = 0; y < HEIGHT; y += GRID_SIZE * 5) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(WIDTH, y);
+                    ctx.stroke();
+                }
+                
+                // Líneas verticales
+                for (let x = 0; x < WIDTH; x += GRID_SIZE * 5) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, HEIGHT);
+                    ctx.stroke();
+                }
+            }
+            
+            // Dibujar un jugador
+            function drawPlayer(player) {
+                // Dibujar rastro
+                for (let i = 0; i < player.trail.length; i++) {
+                    const pos = player.trail[i];
+                    
+                    // Efecto de desvanecimiento en el rastro
+                    const alpha = 0.3 + (i / player.trail.length) * 0.7;
+                    
+                    // Dibujar el rastro con brillo neón
+                    ctx.fillStyle = player.color;
+                    ctx.shadowColor = player.shadowColor;
+                    ctx.shadowBlur = 10;
+                    ctx.globalAlpha = alpha;
+                    
+                    // Rectángulo con bordes redondeados para efecto neón
+                    ctx.beginPath();
+                    ctx.roundRect(pos.x, pos.y, GRID_SIZE, GRID_SIZE, 2);
+                    ctx.fill();
+                }
+                
+                // Dibujar cabeza del jugador con brillo más intenso
+                ctx.shadowColor = player.shadowColor;
+                ctx.shadowBlur = 15;
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = player.color;
+                
+                ctx.beginPath();
+                ctx.roundRect(player.x, player.y, GRID_SIZE, GRID_SIZE, 3);
+                ctx.fill();
+                
+                // Resetear sombras y alpha
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
+            }
+            
+            // Manejar colisiones
+            function checkCollisions(player) {
+                // Obtener la posición en la cuadrícula
+                const gridX = Math.floor(player.x / GRID_SIZE);
+                const gridY = Math.floor(player.y / GRID_SIZE);
+                
+                // Verificar límites del canvas
+                if (gridX < 0 || gridX >= COLS || gridY < 0 || gridY >= ROWS) {
+                    return true;
+                }
+                
+                // Verificar colisión con rastros
+                if (grid[gridX][gridY] === 1) {
+                    return true;
+                }
+                
+                // Marcar posición como ocupada
+                grid[gridX][gridY] = 1;
+                
+                return false;
+            }
+            
+            // Actualizar el juego
+            function update() {
+                // Mover jugador 1
+                player1.x += player1.dx * GRID_SIZE;
+                player1.y += player1.dy * GRID_SIZE;
+                
+                // Mover jugador 2
+                player2.x += player2.dx * GRID_SIZE;
+                player2.y += player2.dy * GRID_SIZE;
+                
+                // Guardar la posición anterior en el rastro
+                player1.trail.push({x: player1.x, y: player1.y});
+                player2.trail.push({x: player2.x, y: player2.y});
+                
+                // Verificar colisiones
+                let player1Crashed = checkCollisions(player1);
+                let player2Crashed = checkCollisions(player2);
+                
+                // Verificar fin del juego
+                if (player1Crashed && player2Crashed) {
+                    endGame('¡Empate!');
+                } else if (player1Crashed) {
+                    endGame('<span class="blue-neon">¡Jugador 2 Gana!</span>');
+                } else if (player2Crashed) {
+                    endGame('<span class="pink-neon">¡Jugador 1 Gana!</span>');
+                }
+            }
+            
+            // Dibujar el juego
+            function draw() {
+                drawBackground();
+                drawPlayer(player1);
+                drawPlayer(player2);
+            }
+            
+            // Bucle principal del juego
+            function gameLoop() {
+                update();
+                draw();
+            }
+            
+            // Finalizar el juego
+            function endGame(message) {
+                clearInterval(gameInterval);
+                isGameRunning = false;
+                winnerDiv.innerHTML = message;
+                gameOverDiv.style.display = 'block';
+            }
+            
+            // Iniciar el juego
+            function startGame() {
+                if (isGameRunning) return;
+                
+                // Ocultar pantalla de fin de juego
+                gameOverDiv.style.display = 'none';
+                
+                // Inicializar la cuadrícula
+                initGrid();
+                
+                // Reiniciar jugadores
+                player1 = {
+                    x: Math.floor(WIDTH * 0.25),
+                    y: HEIGHT / 2,
+                    dx: 1,
+                    dy: 0,
+                    color: '#ff00ff',
+                    shadowColor: '#ff00ff',
+                    trail: [],
+                    controls: {
+                        up: 'KeyW',
+                        down: 'KeyS',
+                        left: 'KeyA',
+                        right: 'KeyD'
+                    }
+                };
+                
+                player2 = {
+                    x: Math.floor(WIDTH * 0.75),
+                    y: HEIGHT / 2,
+                    dx: -1,
+                    dy: 0,
+                    color: '#00ffff',
+                    shadowColor: '#00ffff',
+                    trail: [],
+                    controls: {
+                        up: 'ArrowUp',
+                        down: 'ArrowDown',
+                        left: 'ArrowLeft',
+                        right: 'ArrowRight'
+                    }
+                };
+                
+                // Limpiar canvas
+                ctx.clearRect(0, 0, WIDTH, HEIGHT);
+                
+                // Iniciar bucle del juego
+                isGameRunning = true;
+                gameInterval = setInterval(gameLoop, GAME_SPEED);
+            }
+            
+            // Eventos de teclado
+            function handleKeyDown(e) {
+                if (!isGameRunning) return;
+                
+                // Jugador 1 (WASD)
+                if (e.code === player1.controls.up && player1.dy !== 1) {
+                    player1.dx = 0;
+                    player1.dy = -1;
+                } else if (e.code === player1.controls.down && player1.dy !== -1) {
+                    player1.dx = 0;
+                    player1.dy = 1;
+                } else if (e.code === player1.controls.left && player1.dx !== 1) {
+                    player1.dx = -1;
+                    player1.dy = 0;
+                } else if (e.code === player1.controls.right && player1.dx !== -1) {
+                    player1.dx = 1;
+                    player1.dy = 0;
+                }
+                
+                // Jugador 2 (Flechas)
+                if (e.code === player2.controls.up && player2.dy !== 1) {
+                    player2.dx = 0;
+                    player2.dy = -1;
+                } else if (e.code === player2.controls.down && player2.dy !== -1) {
+                    player2.dx = 0;
+                    player2.dy = 1;
+                } else if (e.code === player2.controls.left && player2.dx !== 1) {
+                    player2.dx = -1;
+                    player2.dy = 0;
+                } else if (e.code === player2.controls.right && player2.dx !== -1) {
+                    player2.dx = 1;
+                    player2.dy = 0;
+                }
+            }
+            
+            // Event listeners
+            startBtn.addEventListener('click', startGame);
+            restartBtn.addEventListener('click', startGame);
+            document.addEventListener('keydown', handleKeyDown);
+            
+            // Dibujo inicial
+            drawBackground();
+
+            <h1>BY 4t</h1>
+        });
+    </script>
+</body>
+</html>
